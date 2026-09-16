@@ -123,8 +123,8 @@ describe("useWeather", () => {
     searchCitiesMock.mockResolvedValueOnce([SAMPLE_CITY]);
     getWeatherMock.mockResolvedValueOnce(SAMPLE_WEATHER);
 
-    act(() => {
-      result.current.retry();
+    await act(async () => {
+      await result.current.retry();
     });
 
     await waitFor(() => expect(result.current.status).toBe("success"));
@@ -146,8 +146,8 @@ describe("useWeather", () => {
 
     getWeatherMock.mockResolvedValueOnce(SAMPLE_WEATHER);
 
-    act(() => {
-      result.current.retry();
+    await act(async () => {
+      await result.current.retry();
     });
 
     await waitFor(() => expect(result.current.status).toBe("success"));

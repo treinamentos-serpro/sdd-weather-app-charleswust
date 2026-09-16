@@ -63,6 +63,8 @@ test("searches a city, shows the forecast, and converts to Fahrenheit", async ({
   await expect(page.getByText("Seattle")).toBeVisible();
   await expect(page.getByLabel("Previsão de cinco dias")).toBeVisible();
   await expect(page.getByText("0,0 °C")).toBeVisible();
+  await expect(page.locator("main")).toBeFocused();
+  await expect(page.locator("main")).toHaveAttribute("aria-busy", "false");
 
   await page.getByRole("button", { name: "°F" }).click();
 
@@ -70,12 +72,18 @@ test("searches a city, shows the forecast, and converts to Fahrenheit", async ({
 });
 
 test("shows a no-results state when geocoding returns an empty payload", async ({ page }) => {
+  let forecastRequests = 0;
+
   await page.route("**/v1/search**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({}),
     });
+  });
+  await page.route("**/v1/forecast**", async (route) => {
+    forecastRequests += 1;
+    await route.abort();
   });
 
   await page.goto("/");
@@ -84,6 +92,88 @@ test("shows a no-results state when geocoding returns an empty payload", async (
 
   await expect(page.getByText("Nenhuma cidade encontrada")).toBeVisible();
   await expect(page.getByText("Verifique o nome digitado e tente novamente.")).toBeVisible();
+  expect(forecastRequests).toBe(0);
+});
+
+test("does not search empty or whitespace-only queries", async ({ page }) => {
+  let searchRequests = 0;
+  await page.route("**/v1/search**", async (route) => {
+    searchRequests += 1;
+    await route.abort();
+  });
+
+  await page.goto("/");
+  const input = page.getByLabel("Nome da cidade");
+  const searchButton = page.getByRole("button", { name: "Buscar" });
+
+  await searchButton.click();
+  await input.fill("   ");
+  await searchButton.click();
+
+  expect(searchRequests).toBe(0);
+  await expect(page.getByText("Comece uma busca")).toBeVisible();
+});
+
+test("encodes special characters in the city search", async ({ page }) => {
+  const query = "São Paulo & Cia";
+  let searchUrl = "";
+
+  await page.route("**/v1/search**", async (route) => {
+    searchUrl = route.request().url();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ results: [CITY] }),
+    });
+  });
+  await page.route("**/v1/forecast**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(FORECAST_RESPONSE),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByLabel("Nome da cidade").fill(query);
+  await page.getByRole("button", { name: "Buscar" }).click();
+
+  await expect(page.getByText("Seattle")).toBeVisible();
+  expect(searchUrl).toContain(encodeURIComponent(query));
+});
+
+test("shows a recoverable error for an incomplete forecast", async ({ page }) => {
+  await page.route("**/v1/search**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ results: [CITY] }),
+    });
+  });
+  await page.route("**/v1/forecast**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        current: FORECAST_RESPONSE.current,
+        daily: {
+          time: FORECAST_RESPONSE.daily.time.slice(0, 4),
+          weather_code: FORECAST_RESPONSE.daily.weather_code.slice(0, 4),
+          temperature_2m_min: FORECAST_RESPONSE.daily.temperature_2m_min.slice(0, 4),
+          temperature_2m_max: FORECAST_RESPONSE.daily.temperature_2m_max.slice(0, 4),
+        },
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByLabel("Nome da cidade").fill("Seattle");
+  await page.getByRole("button", { name: "Buscar" }).click();
+
+  await expect(page.getByRole("alert")).toContainText(
+    "A previsão recebida está incompleta",
+  );
+  await expect(page.getByRole("button", { name: "Tentar novamente" })).toBeVisible();
 });
 
 test("works correctly on mobile when searching for a city", async ({ page }) => {

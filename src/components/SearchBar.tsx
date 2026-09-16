@@ -6,6 +6,8 @@ interface SearchBarProps {
   disabled?: boolean;
 }
 
+const MIN_QUERY_LENGTH = 2;
+
 function SearchBar({ onSearch, disabled = false }: SearchBarProps) {
   const [value, setValue] = useState("");
   const inputId = useId();
@@ -13,7 +15,7 @@ function SearchBar({ onSearch, disabled = false }: SearchBarProps) {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = value.trim();
-    if (!trimmed) return;
+    if (trimmed.length < MIN_QUERY_LENGTH) return;
     onSearch(trimmed);
   };
 
@@ -30,12 +32,12 @@ function SearchBar({ onSearch, disabled = false }: SearchBarProps) {
           onChange={(event) => setValue(event.target.value)}
           disabled={disabled}
           placeholder="Buscar cidade..."
-          className="w-full rounded-xl bg-transparent px-3 py-2 text-white placeholder-white/40 outline-none focus-visible:ring-2 focus-visible:ring-accent-400 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-xl bg-transparent px-3 py-2 text-white placeholder-white/60 outline-none focus-visible:ring-2 focus-visible:ring-accent-400 disabled:cursor-not-allowed disabled:text-white/40 disabled:opacity-100"
         />
         <button
           type="submit"
           disabled={disabled}
-          className="shrink-0 rounded-xl bg-accent-500 px-4 py-2 font-medium text-white transition-colors hover:bg-accent-600 focus-visible:ring-2 focus-visible:ring-accent-400 disabled:cursor-not-allowed disabled:opacity-50"
+          className="shrink-0 rounded-xl bg-accent-600 px-4 py-2 font-medium text-white transition-colors hover:bg-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40"
         >
           Buscar
         </button>

@@ -69,6 +69,24 @@ describe("searchCities", () => {
     expect(result).toEqual([]);
   });
 
+  it("ignora cidades com nome ou coordenadas ausentes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [
+          { id: 1, name: null, latitude: 1, longitude: 2 },
+          { id: 2, name: "Cidade válida", latitude: 0, longitude: 0 },
+          { id: 3, name: "Sem coordenadas", latitude: null, longitude: 2 },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(searchCities("Cidade")).resolves.toEqual([
+      expect.objectContaining({ name: "Cidade válida", latitude: 0, longitude: 0 }),
+    ]);
+  });
+
   it("lança WeatherServiceError em resposta não-ok", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false });
     vi.stubGlobal("fetch", fetchMock);
@@ -84,7 +102,7 @@ describe("searchCities", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(searchCities("Seattle")).rejects.toThrow(
-      "A requisição demorou demais.",
+      "A conexão demorou mais de 10 segundos. Tente novamente.",
     );
   });
 
@@ -92,7 +110,31 @@ describe("searchCities", () => {
     const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(searchCities("Seattle")).rejects.toThrow("Falha de rede.");
+    await expect(searchCities("Seattle")).rejects.toThrow(
+      "Não foi possível conectar ao serviço de clima. Verifique sua conexão e tente novamente.",
+    );
+  });
+
+  it("aborta uma requisição que excede o timeout", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(
+      (_url: string, options?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          options?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const request = searchCities("Seattle");
+    const assertion = expect(request).rejects.toThrow(
+      "A conexão demorou mais de 10 segundos. Tente novamente.",
+    );
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    await assertion;
+    vi.useRealTimers();
   });
 
   it("usa encodeURIComponent no nome da cidade", async () => {
@@ -195,6 +237,56 @@ describe("getWeather", () => {
     const result = await getWeather(SAMPLE_CITY);
 
     expect(result.current.precipitationMm).toBe(0);
+  });
+
+  it("normaliza campos atuais e diários ausentes para fallbacks seguros", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        current: {},
+        daily: {
+          time: [
+            "2026-09-16",
+            "2026-09-17",
+            "2026-09-18",
+            "2026-09-19",
+            "2026-09-20",
+          ],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getWeather(SAMPLE_CITY);
+
+    expect(result.current).toEqual({
+      temperatureCelsius: null,
+      weatherCode: null,
+      condition: null,
+      time: null,
+      relativeHumidity: null,
+      windSpeedKmh: null,
+      precipitationMm: 0,
+      pressureHpa: null,
+    });
+    expect(result.forecast).toHaveLength(5);
+  });
+
+  it("rejeita uma previsão com menos de cinco datas válidas", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        current: {},
+        daily: {
+          time: ["2026-09-16", null, "data-invalida"],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getWeather(SAMPLE_CITY)).rejects.toThrow(
+      "A previsão recebida está incompleta. Tente novamente.",
+    );
   });
 
   it("lança WeatherServiceError quando current está ausente", async () => {

@@ -14,8 +14,10 @@ export function getUnitSymbol(unit: Unit): string {
   return unit === "fahrenheit" ? "°F" : "°C";
 }
 
-export function formatTemperature(celsius: number | null, unit: Unit): string {
-  if (celsius === null) return "Não disponível";
+export function formatTemperature(celsius: number | null | undefined, unit: Unit): string {
+  if (celsius === null || celsius === undefined || !Number.isFinite(celsius)) {
+    return "Não disponível";
+  }
   const value = convertTemperature(celsius, unit);
   return `${value.toFixed(1).replace(".", ",")} ${getUnitSymbol(unit)}`;
 }

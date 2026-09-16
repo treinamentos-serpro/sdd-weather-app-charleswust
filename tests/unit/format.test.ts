@@ -24,7 +24,6 @@ describe("format utilities", () => {
   });
 
   it("formats dates using the short Brazilian pattern", () => {
-    const someDate = new Date("2026-09-16T00:00:00");
     expect(formatShortDate("2026-09-16")).toBe("16/09");
     expect(formatShortDate("2026-02-05")).toBe("05/02");
     expect(formatShortDate("not-a-date")).toBe("Não disponível");

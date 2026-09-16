@@ -12,6 +12,30 @@ describe("SearchBar", () => {
     expect(onSearch).not.toHaveBeenCalled();
   });
 
+  it("does not call onSearch when the input contains only spaces", () => {
+    const onSearch = vi.fn();
+    render(<SearchBar onSearch={onSearch} />);
+
+    fireEvent.change(screen.getByLabelText("Nome da cidade"), {
+      target: { value: "   " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+
+    expect(onSearch).not.toHaveBeenCalled();
+  });
+
+  it("does not call onSearch for a query shorter than two characters", () => {
+    const onSearch = vi.fn();
+    render(<SearchBar onSearch={onSearch} />);
+
+    fireEvent.change(screen.getByLabelText("Nome da cidade"), {
+      target: { value: "S" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+
+    expect(onSearch).not.toHaveBeenCalled();
+  });
+
   it("calls onSearch with the trimmed value when the user submits a term", () => {
     const onSearch = vi.fn();
     render(<SearchBar onSearch={onSearch} />);

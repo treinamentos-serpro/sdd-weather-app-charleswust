@@ -4,7 +4,14 @@ import CurrentWeather from "../../src/components/CurrentWeather";
 import UnitToggle from "../../src/components/UnitToggle";
 import type { City, CurrentWeather as CurrentWeatherData, Unit } from "../../src/types/weather";
 
-const city: City = { id: 1, name: "Seattle", latitude: 47.6062, longitude: -122.3321 };
+const city: City = {
+  id: 1,
+  name: "Blumenau",
+  countryCode: "BR",
+  region: "Santa Catarina",
+  latitude: -26.9194,
+  longitude: -49.0661,
+};
 
 const current: CurrentWeatherData = {
   temperatureCelsius: 0,
@@ -18,6 +25,12 @@ const current: CurrentWeatherData = {
 };
 
 describe("unit toggle and current weather", () => {
+  it("shows the selected city with its Brazilian state abbreviation", () => {
+    render(<CurrentWeather city={city} current={current} unit="celsius" />);
+
+    expect(screen.getByRole("heading", { name: "Blumenau/SC" })).toBeInTheDocument();
+  });
+
   it("shows 32° when the user switches from Celsius to Fahrenheit", () => {
     let unit: Unit = "celsius";
 

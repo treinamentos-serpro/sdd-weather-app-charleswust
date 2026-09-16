@@ -12,7 +12,7 @@ interface UseWeatherResult {
   query: string;
   search: (name: string) => Promise<void>;
   selectCity: (city: City) => Promise<void>;
-  retry: () => void;
+  retry: () => Promise<void>;
 }
 
 type LastOperation =
@@ -85,15 +85,16 @@ export function useWeather(): UseWeatherResult {
     [loadWeather],
   );
 
-  const retry = useCallback(() => {
+  const retry = useCallback(async () => {
     const operation = lastOperation.current;
     if (!operation) return;
 
     if (operation.type === "search") {
-      void search(operation.name);
-    } else {
-      void selectCity(operation.city);
+      await search(operation.name);
+      return;
     }
+
+    await selectCity(operation.city);
   }, [search, selectCity]);
 
   return { status, data, cities, error, query, search, selectCity, retry };

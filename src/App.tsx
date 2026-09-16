@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SearchBar from "./components/SearchBar";
 import UnitToggle from "./components/UnitToggle";
 import CurrentWeather from "./components/CurrentWeather";
@@ -12,6 +12,13 @@ import type { Unit } from "./types/weather";
 function App() {
   const [unit, setUnit] = useState<Unit>("celsius");
   const { status, data, error, search, retry } = useWeather();
+  const resultRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (status !== "idle" && status !== "loading") {
+      resultRef.current?.focus();
+    }
+  }, [status]);
 
   return (
     <div className="min-h-screen bg-night-900 text-white">
@@ -26,7 +33,12 @@ function App() {
 
         <SearchBar onSearch={search} disabled={status === "loading"} />
 
-        <main className="flex flex-col gap-6">
+        <main
+          ref={resultRef}
+          tabIndex={-1}
+          aria-busy={status === "loading"}
+          className="flex flex-col gap-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-night-900"
+        >
           {status === "idle" && (
             <EmptyState
               title="Comece uma busca"

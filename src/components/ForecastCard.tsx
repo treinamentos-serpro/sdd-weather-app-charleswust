@@ -12,7 +12,9 @@ const NOT_AVAILABLE = "Não disponível";
 
 function ForecastCard({ day, unit }: ForecastCardProps) {
   const precipitation =
-    day.precipitationProbabilityPercent === null || day.precipitationProbabilityPercent === undefined
+    day.precipitationProbabilityPercent === null ||
+    day.precipitationProbabilityPercent === undefined ||
+    !Number.isFinite(day.precipitationProbabilityPercent)
       ? NOT_AVAILABLE
       : `${day.precipitationProbabilityPercent}%`;
 

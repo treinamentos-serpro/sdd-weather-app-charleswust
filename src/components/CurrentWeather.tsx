@@ -10,6 +10,45 @@ interface CurrentWeatherProps {
 
 const NOT_AVAILABLE = "Não disponível";
 
+const BRAZILIAN_STATE_UFS: Record<string, string> = {
+  Acre: "AC",
+  Alagoas: "AL",
+  Amapá: "AP",
+  Amazonas: "AM",
+  Bahia: "BA",
+  Ceará: "CE",
+  "Distrito Federal": "DF",
+  "Espírito Santo": "ES",
+  Goiás: "GO",
+  Maranhão: "MA",
+  "Mato Grosso": "MT",
+  "Mato Grosso do Sul": "MS",
+  "Minas Gerais": "MG",
+  Pará: "PA",
+  Paraíba: "PB",
+  Paraná: "PR",
+  Pernambuco: "PE",
+  Piauí: "PI",
+  "Rio de Janeiro": "RJ",
+  "Rio Grande do Norte": "RN",
+  "Rio Grande do Sul": "RS",
+  Rondônia: "RO",
+  Roraima: "RR",
+  "Santa Catarina": "SC",
+  "São Paulo": "SP",
+  Sergipe: "SE",
+  Tocantins: "TO",
+};
+
+function formatCityName(city: City): string {
+  if (city.countryCode?.toUpperCase() !== "BR" || !city.region) {
+    return city.name;
+  }
+
+  const uf = BRAZILIAN_STATE_UFS[city.region] ?? city.region.toUpperCase();
+  return `${city.name}/${uf}`;
+}
+
 function formatTime(time: string | null): string {
   if (!time) return NOT_AVAILABLE;
   const date = new Date(time);
@@ -18,11 +57,14 @@ function formatTime(time: string | null): string {
 }
 
 function formatMetric(value: number | null | undefined, suffix: string): string {
-  if (value === null || value === undefined) return NOT_AVAILABLE;
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return NOT_AVAILABLE;
+  }
   return `${value.toLocaleString("pt-BR")} ${suffix}`;
 }
 
 function CurrentWeather({ city, current, unit }: CurrentWeatherProps) {
+  const displayCityName = formatCityName(city);
   const metrics = [
     { label: "Umidade", value: formatMetric(current.relativeHumidity, "%") },
     { label: "Vento", value: formatMetric(current.windSpeedKmh, "km/h") },
@@ -32,12 +74,12 @@ function CurrentWeather({ city, current, unit }: CurrentWeatherProps) {
 
   return (
     <section
-      aria-label={`Clima atual em ${city.name}`}
+      aria-label={`Clima atual em ${displayCityName}`}
       className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-md"
     >
       <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-between sm:text-left">
         <div>
-          <h2 className="text-lg font-medium text-white/70">{city.name}</h2>
+          <h2 className="text-lg font-medium text-white/70">{displayCityName}</h2>
           <p className="text-sm text-white/50">{formatTime(current.time)}</p>
         </div>
         <div className="flex items-center gap-3">

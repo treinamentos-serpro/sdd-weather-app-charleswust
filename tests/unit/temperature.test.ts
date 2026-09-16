@@ -41,4 +41,9 @@ describe("temperature utilities", () => {
     expect(getUnitSymbol("celsius")).toBe("°C");
     expect(getUnitSymbol("fahrenheit")).toBe("°F");
   });
+
+  it("does not expose NaN or undefined for unavailable temperatures", () => {
+    expect(formatTemperature(undefined, "celsius")).toBe("Não disponível");
+    expect(formatTemperature(Number.NaN, "celsius")).toBe("Não disponível");
+  });
 });
