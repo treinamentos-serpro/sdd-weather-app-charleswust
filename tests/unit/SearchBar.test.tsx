@@ -1,21 +1,26 @@
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi } from 'vitest';
-import SearchBar from '../../src/components/SearchBar';
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import SearchBar from "../../src/components/SearchBar";
 
-describe('SearchBar', () => {
-  it('não dispara busca com input vazio', async () => {
+describe("SearchBar", () => {
+  it("does not call onSearch when the input is empty", () => {
     const onSearch = vi.fn();
     render(<SearchBar onSearch={onSearch} />);
-    await userEvent.click(screen.getByRole('button', { name: /buscar/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+
     expect(onSearch).not.toHaveBeenCalled();
   });
 
-  it('dispara busca com o termo digitado', async () => {
+  it("calls onSearch with the trimmed value when the user submits a term", () => {
     const onSearch = vi.fn();
     render(<SearchBar onSearch={onSearch} />);
-    await userEvent.type(screen.getByLabelText(/buscar cidade/i), 'Lisboa');
-    await userEvent.click(screen.getByRole('button', { name: /buscar/i }));
-    expect(onSearch).toHaveBeenCalledWith('Lisboa');
+
+    const input = screen.getByLabelText("Nome da cidade");
+    fireEvent.change(input, { target: { value: "  São Paulo  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+
+    expect(onSearch).toHaveBeenCalledTimes(1);
+    expect(onSearch).toHaveBeenCalledWith("São Paulo");
   });
 });

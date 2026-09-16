@@ -1,28 +1,36 @@
-import type { ForecastDay, Unit } from '../types/weather';
-import { formatTemperature } from '../lib/temperature';
-import { getWeatherIcon, getWeatherLabel } from '../lib/weatherCodes';
-import { getDayLabel, getShortDate } from '../lib/format';
+import { formatDayLabel, formatShortDate } from "../lib/format";
+import { formatTemperature } from "../lib/temperature";
+import { getWeatherIcon } from "../lib/weatherCodes";
+import type { ForecastDay, Unit } from "../types/weather";
 
 interface ForecastCardProps {
   day: ForecastDay;
-  index: number;
   unit: Unit;
 }
 
-/** Card de um dia da previsão. */
-export default function ForecastCard({ day, index, unit }: ForecastCardProps) {
+const NOT_AVAILABLE = "Não disponível";
+
+function ForecastCard({ day, unit }: ForecastCardProps) {
+  const precipitation =
+    day.precipitationProbabilityPercent === null || day.precipitationProbabilityPercent === undefined
+      ? NOT_AVAILABLE
+      : `${day.precipitationProbabilityPercent}%`;
+
   return (
-    <li className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
-      <p className="font-semibold">{getDayLabel(day.date, index)}</p>
-      <p className="text-xs text-white/50">{getShortDate(day.date)}</p>
-      <span aria-hidden="true" className="text-3xl" title={getWeatherLabel(day.weatherCode)}>
+    <li className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/5 p-4 text-center shadow-glass backdrop-blur-md">
+      <p className="font-medium text-white">{formatDayLabel(day.date)}</p>
+      <p className="text-xs text-white/50">{formatShortDate(day.date)}</p>
+      <span aria-hidden="true" className="text-4xl">
         {getWeatherIcon(day.weatherCode)}
       </span>
-      <p className="text-sm">
-        <span className="font-semibold">{formatTemperature(day.max, unit)}</span>{' '}
-        <span className="text-white/50">{formatTemperature(day.min, unit)}</span>
+      <p className="text-sm text-white/70">{day.condition ?? NOT_AVAILABLE}</p>
+      <p className="text-sm font-medium text-white">
+        {formatTemperature(day.temperatureMaxCelsius, unit)} /{" "}
+        <span className="text-white/60">{formatTemperature(day.temperatureMinCelsius, unit)}</span>
       </p>
-      <p className="text-xs text-accent-400">💧 {day.precipitationProbability}%</p>
+      <p className="text-xs text-accent-400">💧 {precipitation}</p>
     </li>
   );
 }
+
+export default ForecastCard;

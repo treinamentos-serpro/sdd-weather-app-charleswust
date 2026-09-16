@@ -1,106 +1,245 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { searchCities, getWeather, WeatherServiceError } from '../../src/services/weatherService';
-import type { City } from '../../src/types/weather';
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { getWeather, searchCities, WeatherServiceError } from "../../src/services/weatherService";
+import type { City } from "../../src/types/weather";
 
-const CITY: City = {
-  id: 1,
-  name: 'Seattle',
-  country: 'Estados Unidos',
-  admin1: 'Washington',
-  latitude: 47.6,
-  longitude: -122.33,
-};
-
-function mockFetchOnce(body: unknown, ok = true) {
-  return vi.fn().mockResolvedValue({
-    ok,
-    json: async () => body,
-  } as Response);
-}
-
-describe('weatherService', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
+describe("searchCities", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  describe('searchCities', () => {
-    it('retorna lista vazia para input vazio sem chamar a rede', async () => {
-      const fetchSpy = vi.fn();
-      vi.stubGlobal('fetch', fetchSpy);
-      const result = await searchCities('   ');
-      expect(result).toEqual([]);
-      expect(fetchSpy).not.toHaveBeenCalled();
-    });
+  it("retorna [] para input vazio sem chamar a rede", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
 
-    it('mapeia resultados de geocoding', async () => {
-      vi.stubGlobal(
-        'fetch',
-        mockFetchOnce({
-          results: [
-            {
-              id: 1,
-              name: 'Seattle',
-              country: 'Estados Unidos',
-              admin1: 'Washington',
-              latitude: 47.6,
-              longitude: -122.33,
-            },
+    const result = await searchCities("   ");
+
+    expect(result).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("mapeia os resultados da API para City[]", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            id: 1,
+            name: "Seattle",
+            country: "United States",
+            country_code: "US",
+            admin1: "Washington",
+            latitude: 47.6062,
+            longitude: -122.3321,
+            timezone: "America/Los_Angeles",
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await searchCities("Seattle");
+
+    expect(result).toEqual([
+      {
+        id: 1,
+        name: "Seattle",
+        country: "United States",
+        countryCode: "US",
+        region: "Washington",
+        latitude: 47.6062,
+        longitude: -122.3321,
+        timezone: "America/Los_Angeles",
+      },
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("name=Seattle"),
+      expect.anything(),
+    );
+  });
+
+  it("retorna [] quando a API não tem resultados", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await searchCities("Cidade Inexistente");
+
+    expect(result).toEqual([]);
+  });
+
+  it("lança WeatherServiceError em resposta não-ok", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(searchCities("Seattle")).rejects.toBeInstanceOf(
+      WeatherServiceError,
+    );
+  });
+
+  it("converte AbortError em WeatherServiceError de timeout", async () => {
+    const abortError = new DOMException("Aborted", "AbortError");
+    const fetchMock = vi.fn().mockRejectedValue(abortError);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(searchCities("Seattle")).rejects.toThrow(
+      "A requisição demorou demais.",
+    );
+  });
+
+  it("converte falha de rede em WeatherServiceError", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(searchCities("Seattle")).rejects.toThrow("Falha de rede.");
+  });
+
+  it("usa encodeURIComponent no nome da cidade", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await searchCities("São Paulo & Cia");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(encodeURIComponent("São Paulo & Cia")),
+      expect.anything(),
+    );
+  });
+});
+
+const SAMPLE_CITY: City = {
+  id: 1,
+  name: "Seattle",
+  latitude: 47.6062,
+  longitude: -122.3321,
+  timezone: "America/Los_Angeles",
+};
+
+describe("getWeather", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("mapeia current e daily (5 dias) para WeatherData", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        timezone: "America/Los_Angeles",
+        utc_offset_seconds: -25200,
+        current: {
+          time: "2026-09-16T14:00",
+          temperature_2m: 18.5,
+          weather_code: 2,
+          relative_humidity_2m: 60,
+          wind_speed_10m: 10,
+          precipitation: 0,
+          surface_pressure: 1012,
+        },
+        daily: {
+          time: [
+            "2026-09-16",
+            "2026-09-17",
+            "2026-09-18",
+            "2026-09-19",
+            "2026-09-20",
+            "2026-09-21",
           ],
-        }),
-      );
-      const result = await searchCities('Seattle');
-      expect(result).toHaveLength(1);
-      expect(result[0].name).toBe('Seattle');
+          weather_code: [2, 3, 61, 0, 1, 3],
+          temperature_2m_min: [12, 11, 10, 9, 13, 12],
+          temperature_2m_max: [20, 19, 18, 21, 22, 20],
+          precipitation_probability_max: [10, 20, 80, 0, 5, 15],
+        },
+      }),
     });
+    vi.stubGlobal("fetch", fetchMock);
 
-    it('retorna vazio quando não há results', async () => {
-      vi.stubGlobal('fetch', mockFetchOnce({}));
-      expect(await searchCities('xyzxyz')).toEqual([]);
-    });
+    const result = await getWeather(SAMPLE_CITY);
 
-    it('lança erro tipado em resposta não-ok', async () => {
-      vi.stubGlobal('fetch', mockFetchOnce({}, false));
-      await expect(searchCities('Seattle')).rejects.toBeInstanceOf(WeatherServiceError);
+    expect(result.current.temperatureCelsius).toBe(18.5);
+    expect(result.current.condition).toBe("Parcialmente nublado");
+    expect(result.forecast).toHaveLength(5);
+    expect(result.forecast[0]).toEqual({
+      date: "2026-09-16",
+      weatherCode: 2,
+      condition: "Parcialmente nublado",
+      temperatureMinCelsius: 12,
+      temperatureMaxCelsius: 20,
+      precipitationProbabilityPercent: 10,
     });
   });
 
-  describe('getWeather', () => {
-    it('mapeia current e daily para WeatherData', async () => {
-      vi.stubGlobal(
-        'fetch',
-        mockFetchOnce({
-          current: {
-            time: '2026-06-16T12:00',
-            temperature_2m: 18,
-            relative_humidity_2m: 80,
-            wind_speed_10m: 10,
-            surface_pressure: 1015,
-            precipitation: 0,
-            weather_code: 3,
-          },
-          daily: {
-            time: ['2026-06-16', '2026-06-17', '2026-06-18', '2026-06-19', '2026-06-20'],
-            weather_code: [3, 61, 80, 1, 0],
-            temperature_2m_max: [20, 19, 22, 24, 25],
-            temperature_2m_min: [12, 11, 13, 14, 15],
-            precipitation_probability_max: [20, 90, 70, 10, null],
-          },
-        }),
-      );
-
-      const data = await getWeather(CITY);
-      expect(data.current.temperature).toBe(18);
-      expect(data.forecast).toHaveLength(5);
-      // precipitação nula vira 0 (resposta parcial)
-      expect(data.forecast[4].precipitationProbability).toBe(0);
+  it("normaliza precipitation null para 0", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        current: {
+          time: "2026-09-16T14:00",
+          temperature_2m: 18.5,
+          weather_code: 2,
+          precipitation: null,
+        },
+        daily: {
+          time: ["2026-09-16", "2026-09-17", "2026-09-18", "2026-09-19", "2026-09-20"],
+          weather_code: [2, 3, 61, 0, 1],
+          temperature_2m_min: [12, 11, 10, 9, 13],
+          temperature_2m_max: [20, 19, 18, 21, 22],
+        },
+      }),
     });
+    vi.stubGlobal("fetch", fetchMock);
 
-    it('lança erro quando a resposta está incompleta', async () => {
-      vi.stubGlobal('fetch', mockFetchOnce({ current: null, daily: null }));
-      await expect(getWeather(CITY)).rejects.toBeInstanceOf(WeatherServiceError);
+    const result = await getWeather(SAMPLE_CITY);
+
+    expect(result.current.precipitationMm).toBe(0);
+  });
+
+  it("lança WeatherServiceError quando current está ausente", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        daily: {
+          time: ["2026-09-16"],
+          weather_code: [2],
+          temperature_2m_min: [12],
+          temperature_2m_max: [20],
+        },
+      }),
     });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getWeather(SAMPLE_CITY)).rejects.toBeInstanceOf(
+      WeatherServiceError,
+    );
+  });
+
+  it("lança WeatherServiceError quando daily está ausente", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        current: {
+          time: "2026-09-16T14:00",
+          temperature_2m: 18.5,
+          weather_code: 2,
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getWeather(SAMPLE_CITY)).rejects.toBeInstanceOf(
+      WeatherServiceError,
+    );
+  });
+
+  it("lança WeatherServiceError em resposta não-ok", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getWeather(SAMPLE_CITY)).rejects.toBeInstanceOf(
+      WeatherServiceError,
+    );
   });
 });
